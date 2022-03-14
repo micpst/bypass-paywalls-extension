@@ -1,6 +1,11 @@
 {
     "name": "Bypass Paywalls",
     "manifest_version": 2,
+    "background": {
+        "scripts": [
+            "js/background.bundle.js"
+        ]
+    },
     "browser_action": {
         "default_popup": "popup.html"
     },

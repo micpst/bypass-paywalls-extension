@@ -7,10 +7,11 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 const common = {
     entry: {
-        popup: "./src/js/popup.js"
+        popup: path.join(__dirname, "src", "js", "popup.js"),
+        background: path.join(__dirname, "src", "js", "background.js"),
     },
     output: {
-        filename: "[name].bundle.js",
+        filename: path.join("js", "[name].bundle.js"),
         path: path.join(__dirname, "dist")
     },
     module: {
@@ -56,8 +57,7 @@ const development = {
         }),
         new HtmlWebpackPlugin({
             template: path.join(__dirname, "src", "popup.html"),
-            filename: "popup.html",
-            chunks: ["popup"]
+            filename: "popup.html"
         })
     ]
 };
@@ -86,8 +86,7 @@ const production = {
         }),
         new HtmlWebpackPlugin({
             template: path.join(__dirname, "src", "popup.html"),
-            filename: "popup.html",
-            chunks: ["popup"]
+            filename: "popup.html"
         })
     ]
 };
