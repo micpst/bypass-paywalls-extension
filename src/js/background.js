@@ -1,7 +1,11 @@
 import { cookiesToRemove, domains, userAgents } from "./constants";
 
 const doesURLBelongToDomain = (url, domain) => {
-    const { hostname } = new URL(url);
+    let hostname = url;
+    try {
+        hostname = new URL(url).hostname;
+    }
+    catch (e) {}
     return (hostname === domain || hostname.endsWith(`.${domain}`));
 }
 
@@ -52,10 +56,10 @@ const spoofUserAgentHeader = (requestHeaders, url) => {
 }
 
 const blockCookiesHeader = (requestHeaders, url) => {
-    const allowCookies = domains.allowCookies
+    const doesDomainNeedCookies = domains.allowCookies
         .some(domain => doesURLBelongToDomain(url, domain));
 
-    if (!allowCookies) {
+    if (!doesDomainNeedCookies) {
         return requestHeaders
             .map(({ name, value }) => ({ name, value: (name === 'Cookie') ? '' : value }));
     }
