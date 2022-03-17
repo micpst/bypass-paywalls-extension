@@ -1,13 +1,11 @@
 import { cookiesToRemove, domains, userAgents } from "./constants";
 
-const insertIf = (condition, ...elements) => condition ? elements : [];
-
 const doesURLBelongToDomain = (url, domain) => {
     const { hostname } = new URL(url);
     return (hostname === domain || hostname.endsWith(`.${domain}`));
 }
 
-const rerouteRefererHeader = requestHeaders => 
+const rerouteRefererHeader = (requestHeaders, url) => 
     requestHeaders
         .filter(({ name }) => name !== 'Referer')
         .concat({ 
@@ -15,7 +13,7 @@ const rerouteRefererHeader = requestHeaders =>
             'value': 'https://t.co/' 
         });
 
-const spoofUserAgentHeader = (requestHeaders, url) => {
+const spoofUserAgentHeader = (requestHeaders, url) => { 
     const isMobileUserAgent = requestHeaders
         .some(({ name, value }) => (name === 'User-Agent' && value.toLowerCase().includes('mobile')));
 
@@ -32,30 +30,43 @@ const spoofUserAgentHeader = (requestHeaders, url) => {
     const userAgentMobile = useBingBot ? userAgents.bingMobile 
                            : useGoogleBot ? userAgents.googleMobile 
                            : null;
+                           
+    if (useBingBot || useGoogleBot) {
+        requestHeaders = requestHeaders
+            .filter(({ name }) => (name !== 'User-Agent' || name !== 'X-Forwarded-For'))
+            .concat({ 
+                'name': 'User-Agent', 
+                'value': isMobileUserAgent ? userAgentMobile : userAgentDesktop
+            });
 
-    requestHeaders = requestHeaders
-        .filter(({ name }) => (name !== 'User-Agent' || name !== 'X-Forwarded-For'))
-        .concat({ 
-            'name': 'User-Agent', 
-            'value': isMobileUserAgent ? userAgentMobile : userAgentDesktop
-        }, 
-        ...insertIf(useGoogleBot, {
-            'name': 'X-Forwarded-For', 
-            'value': '66.249.66.1' 
-        }));
+        if (useGoogleBot) {
+            requestHeaders = requestHeaders
+                .concat({
+                    'name': 'X-Forwarded-For', 
+                    'value': '66.249.66.1' 
+                });
+        }
+    }
 
     return requestHeaders;
 }
 
-const blockCookiesHeader = requestHeaders =>
-    requestHeaders
-        .map(({ name, value }) => ({ name, value: (name === 'Cookie') ? '' : value }));
+const blockCookiesHeader = (requestHeaders, url) => {
+    const allowCookies = domains.allowCookies
+        .some(domain => doesURLBelongToDomain(url, domain));
+
+    if (!allowCookies) {
+        return requestHeaders
+            .map(({ name, value }) => ({ name, value: (name === 'Cookie') ? '' : value }));
+    }
+        
+    return requestHeaders;
+}
 
 const bypassPaywall = ({ requestHeaders, url }) => {
-    requestHeaders = rerouteRefererHeader(requestHeaders);
-    requestHeaders = spoofUserAgentHeader(requestHeaders);
-    requestHeaders = blockCookiesHeader(requestHeaders);
-    console.log(requestHeaders)
+    requestHeaders = rerouteRefererHeader(requestHeaders, url);
+    requestHeaders = spoofUserAgentHeader(requestHeaders, url);
+    requestHeaders = blockCookiesHeader(requestHeaders, url);
     return { requestHeaders };
 }
 
