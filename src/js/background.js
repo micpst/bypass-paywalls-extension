@@ -9,6 +9,9 @@ const doesURLBelongToDomain = (url, domain) => {
     return (hostname === domain || hostname.endsWith(`.${domain}`));
 }
 
+const doesURLBelongToAnyDomain = (url, domains) => 
+    domains.some(domain => doesURLBelongToDomain(url, domain));
+
 const rerouteRefererHeader = (requestHeaders, url) => {
     const referer =  doesURLBelongToDomain(url, 'fd.nl') ? 'https://www.facebook.com/'
                   :  doesURLBelongToDomain(url, 'medium.com') ? 'https://t.co/'
@@ -26,26 +29,19 @@ const spoofUserAgentHeader = (requestHeaders, url) => {
     const isMobileUserAgent = requestHeaders
         .some(({ name, value }) => (name === 'User-Agent' && value.toLowerCase().includes('mobile')));
 
-    const useBingBot = domains.useBingBot
-        .some(domain => doesURLBelongToDomain(url, domain));
-
-    const useGoogleBot = domains.useGoogleBot
-        .some(domain => doesURLBelongToDomain(url, domain));
+    const useBingBot = doesURLBelongToAnyDomain(url, domains.useBingBot);
+    const useGoogleBot = doesURLBelongToAnyDomain(url, domains.useGoogleBot);
     
-    const userAgentDesktop = useBingBot ? userAgents.bingDesktop 
-                           : useGoogleBot ? userAgents.googleDesktop 
-                           : null;
-
-    const userAgentMobile = useBingBot ? userAgents.bingMobile 
-                           : useGoogleBot ? userAgents.googleMobile 
-                           : null;
+    const userAgent = isMobileUserAgent 
+                    ? (useBingBot && userAgents.bingDesktop || useGoogleBot && userAgents.googleDesktop || null) 
+                    : (useBingBot && userAgents.bingMobile || useGoogleBot && userAgents.googleMobile || null);
                            
     if (useBingBot || useGoogleBot) {
         requestHeaders = requestHeaders
             .filter(({ name }) => (name !== 'User-Agent' || name !== 'X-Forwarded-For'))
             .concat({ 
                 'name': 'User-Agent', 
-                'value': isMobileUserAgent ? userAgentMobile : userAgentDesktop
+                'value': userAgent
             });
 
         if (useGoogleBot) {
@@ -60,17 +56,10 @@ const spoofUserAgentHeader = (requestHeaders, url) => {
     return requestHeaders;
 }
 
-const blockCookiesHeader = (requestHeaders, url) => {
-    const doesDomainNeedCookies = domains.allowCookies
-        .some(domain => doesURLBelongToDomain(url, domain));
-
-    if (!doesDomainNeedCookies) {
-        return requestHeaders
-            .map(({ name, value }) => ({ name, value: (name === 'Cookie') ? '' : value }));
-    }
-        
-    return requestHeaders;
-}
+const blockCookiesHeader = (requestHeaders, url) => 
+    (!doesURLBelongToAnyDomain(url, domains.allowCookies))
+        ? requestHeaders.map(({ name, value }) => ({ name, value: (name === 'Cookie') ? '' : value })) 
+        : requestHeaders;
 
 const bypassPaywall = ({ requestHeaders, url }) => {
     requestHeaders = rerouteRefererHeader(requestHeaders, url);
