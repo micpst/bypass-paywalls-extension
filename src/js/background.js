@@ -9,13 +9,18 @@ const doesURLBelongToDomain = (url, domain) => {
     return (hostname === domain || hostname.endsWith(`.${domain}`));
 }
 
-const rerouteRefererHeader = (requestHeaders, url) => 
-    requestHeaders
+const rerouteRefererHeader = (requestHeaders, url) => {
+    const referer =  doesURLBelongToDomain(url, 'fd.nl') ? 'https://www.facebook.com/'
+                  :  doesURLBelongToDomain(url, 'medium.com') ? 'https://t.co/'
+                  : 'https://www.google.com/';
+
+    return requestHeaders
         .filter(({ name }) => name !== 'Referer')
         .concat({ 
             'name': 'Referer', 
-            'value': 'https://t.co/' 
+            'value': referer
         });
+}
 
 const spoofUserAgentHeader = (requestHeaders, url) => { 
     const isMobileUserAgent = requestHeaders
@@ -81,7 +86,11 @@ const removeCookies = ({ url }) => {
     chrome.cookies.getAll({ domain }, cookies => {
         cookies
             .filter(cookie => cookiesToRemove.includes(cookie.name))
-            .forEach(cookie => chrome.cookies.remove(cookie));
+            .forEach(cookie => chrome.cookies.remove({ 
+                url: `http${cookie.secure && 's'}://${cookie.domain}${cookie.path}`,
+                name: cookie.name,
+                storeId: cookie.storeId
+            }));
     });
 }
 
